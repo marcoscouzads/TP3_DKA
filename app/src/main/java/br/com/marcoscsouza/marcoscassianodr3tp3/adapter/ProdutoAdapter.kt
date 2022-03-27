@@ -3,6 +3,7 @@ package br.com.marcoscsouza.marcoscassianodr3tp3.adapter
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.lifecycle.LiveData
 import androidx.recyclerview.widget.RecyclerView
 import br.com.marcoscsouza.marcoscassianodr3tp3.databinding.ProdutoItemBinding
 import br.com.marcoscsouza.marcoscassianodr3tp3.db.Produto
@@ -52,4 +53,6 @@ class ProdutoAdapter(
         this.produtos.addAll(produtos)
         notifyDataSetChanged()
     }
+
+
 }

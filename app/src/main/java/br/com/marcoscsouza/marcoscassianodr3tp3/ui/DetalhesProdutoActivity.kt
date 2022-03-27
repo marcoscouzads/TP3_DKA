@@ -12,6 +12,8 @@ import br.com.marcoscsouza.marcoscassianodr3tp3.db.AppDatabase
 import br.com.marcoscsouza.marcoscassianodr3tp3.db.Produto
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.firestore.ktx.toObject
 import com.google.firebase.ktx.Firebase
 
 class DetalhesProdutoActivity : AppCompatActivity() {
@@ -20,15 +22,14 @@ class DetalhesProdutoActivity : AppCompatActivity() {
     }
     private val firebaseAuth = Firebase.auth
     private var produto: Produto? = null
-    private var produtoId: Long = 0L
-    private val produtoDao by lazy {
-        AppDatabase.instancia(this).produtoDao()
-    }
+    private val firestore = Firebase.firestore
+    private var produtoId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
-        produtoId = intent.getLongExtra(CHAVE_PRODUTO_ID, 0L)
+
+        produtoId = intent.getStringExtra("PRODUTO_ID")
 
         editarProduto()
 
@@ -39,7 +40,10 @@ class DetalhesProdutoActivity : AppCompatActivity() {
     private fun deletarProduto() {
         val btDeletar = binding.btDeletar
         btDeletar.setOnClickListener {
-            produto?.let { produtoDao.remove(it) }
+
+            firestore.collection("produtos")
+                .document(produtoId.toString())
+                .delete()
             finish()
         }
     }
@@ -48,10 +52,16 @@ class DetalhesProdutoActivity : AppCompatActivity() {
         val btEditar = binding.btEditar
         btEditar.setOnClickListener {
 
-            Intent(this, CadastroProdutoActivity::class.java).apply {
-                putExtra(CHAVE_PRODUTO_ID, produtoId)
-                startActivity(this)
+            val i = Intent(
+                this,
+                CadastroProdutoActivity::class.java
+            ).apply {
+                putExtra("PRODUTO_ID",produtoId)
+
             }
+            startActivity(i)
+            Toast.makeText(this, "carregar id $produtoId", Toast.LENGTH_SHORT).show()
+
         }
     }
 
@@ -77,29 +87,44 @@ class DetalhesProdutoActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
 
-        if (!estaLogado()){
+        if (!estaLogado()) {
             val i = Intent(this, LoginUsuarioActivity::class.java)
             startActivity(i)
         }
 
-        produto = produtoDao.buscaPorId(produtoId)
-        produto?.let {
-            with(binding) {
-                activityDetalhesProdutoNome.text = it.nome
-                activityDetalhesProdutoDescricao.text = it.descricao
+        firestore.collection("produtos")
+            .document(produtoId.toString())
+            .addSnapshotListener { s, _ ->
+                s?.let { document ->
+                    document.toObject<ProdutoDocumento>()?.paraProduto(document.id)
+                        ?.let { produto ->
+                            with(binding) {
+                                activityDetalhesProdutoNome.text = produto.nome
+                                activityDetalhesProdutoDescricao.text = produto.descricao
+                            }
+                        }
+                }
             }
-
-        } ?: finish()
+        Toast.makeText(this, "id ${produto?.id}  id ${produtoId.toString()}", Toast.LENGTH_SHORT).show()
     }
 
-    fun estaLogado(): Boolean{
+    fun estaLogado(): Boolean {
         val userFire: FirebaseUser? = firebaseAuth.currentUser
-        if (userFire != null){
+        if (userFire != null) {
             Toast.makeText(this, "Usuário logado: ${userFire.email}", Toast.LENGTH_SHORT).show()
             return true
-        }else{
+        } else {
             Toast.makeText(this, "Usuário não está logado.", Toast.LENGTH_SHORT).show()
             return false
+        }
+    }
+
+    class ProdutoDocumento(
+        val nome: String = "",
+        val descricao: String = ""
+    ) {
+        fun paraProduto(id: String): Produto {
+            return Produto(id = id, nome = nome, descricao = descricao)
         }
     }
 
